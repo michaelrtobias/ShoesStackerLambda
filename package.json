@@ -1,0 +1,16 @@
+{
+  "name": "ShoesStackerAPI",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug-invoke": "node --nolazy .debug/invoke.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.5.1",
+    "sequelize": "^6.6.2"
+  }
+}
