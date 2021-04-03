@@ -1,15 +1,14 @@
 const models = require("./db/models.js");
 const SneaksAPI = require("sneaks-api");
+const AWS = require("aws-sdk");
+const Router = require("./Router");
+const Shoes = require("./entities/Shoes");
 
 class ShoesStackerAPI {
   constructor(event) {
+    // super(event, ROUTES);
     this.event = event;
     this.body = JSON.parse(this.event.body);
-  }
-
-  async _getAllShoes() {
-    const shoes = await models.Shoe.findAll();
-    return shoes;
   }
 
   async _getAllUserShoes() {
@@ -145,12 +144,14 @@ class ShoesStackerAPI {
 
   async _searchCollections() {
     const body = this.body;
+    const brandId = this.event.pathParameters.brandid;
+
     const collections = await models.Collection.findOrCreate({
       where: {
         name: body.name.toLowerCase(),
       },
       defaults: {
-        brandId: body.brandId,
+        brandId: brandId,
       },
     });
     return collections;
@@ -158,7 +159,7 @@ class ShoesStackerAPI {
 
   async _getBrandCollections() {
     const body = this.body;
-    const brandId = this.event.pathParameters.brandId;
+    const brandId = this.event.pathParameters.brandid;
     const collection = await models.Collection.findAll({
       where: {
         brandId: brandId,
@@ -169,7 +170,7 @@ class ShoesStackerAPI {
 
   async _createCollection() {
     const body = this.body;
-    const brandId = this.event.pathParameters.brandId;
+    const brandId = this.event.pathParameters.brandid;
     const collection = await models.Collection.create({
       name: body.name,
       brandId: brandId,
@@ -204,8 +205,9 @@ class ShoesStackerAPI {
   }
   async _createModel() {
     const body = this.body;
-    const brandId = this.event.pathParameters.brandId;
+    const brandId = this.event.pathParameters.brandid;
     const collectionId = this.event.pathParameters.collectionId;
+    debugger;
     const model = await models.Model.create({
       name: body.name,
       brandId: brandId,
@@ -279,7 +281,7 @@ class ShoesStackerAPI {
       ACL: "public-read",
     };
 
-    const image = s3.getSignedUrl("putObject", s3Params, (err, url) => {
+    const image = await s3.getSignedUrl("putObject", s3Params, (err, url) => {
       if (err) {
         throw err;
       } else {
@@ -288,7 +290,7 @@ class ShoesStackerAPI {
           url: `https://${S3_Bucket}.s3.amazonaws.com/${fileName}`,
         };
         console.log("URL Created");
-        return { success: true, data: { returnData } };
+        return JSON.stringify({ success: true, data: { returnData } });
       }
     });
     return image;
@@ -296,103 +298,105 @@ class ShoesStackerAPI {
   //SNEAKS
   async _getSneaksData() {
     const body = this.body;
+    const term = this.event.queryStringParameters.term;
     const sneaks = new SneaksAPI();
-    const shoes = await sneaks.getProducts(req.query.term, (err, shoes) => {
+    const shoes = await sneaks.getProducts(term, (err, shoes) => {
       if (err) {
         throw err;
       } else {
-        res.send(shoes);
-        console.log(`Shoes for ${req.query.term}`);
+        console.log(`Shoes for ${term}`);
+        return shoes;
       }
     });
     return shoes;
   }
 
-  async run() {
-    const event = this.event;
-    const resource = this.event.resource;
-    const method = this.event.httpMethod;
+  router() {
+    const { resource, httpMethod } = this.event;
+    const routes = {
+      ...Shoes.routes,
+      // ...Users.routes,
+    };
 
-    if (resource === "/shoes" && method === "GET") {
-      return this._getAllShoes();
-    } else if (resource === "/users/{userId}/shoes" && method === "GET") {
-      return this._getAllUserShoes();
-    } else if (resource === "/users/{userId}/shoes" && method === "POST") {
-      return this._createUserShoe();
-    } else if (
-      resource === "/users/{userId}/shoes/{shoeId}" &&
-      method === "DELETE"
-    ) {
-      return this._deleteUserShoe();
-    } else if (resource === "/users" && method === "POST") {
-      return this._createUser();
-    } else if (resource === "/users" && method === "GET") {
-      return this._getAllUsers();
-    } else if (resource === "/users/{userId}" && method === "GET") {
-      return this._getCurrentUser();
-    } else if (resource === "/brands" && method === "GET") {
-      return this._getAllBrands();
-    } else if (resource === "/brands" && method === "POST") {
-      return this._createBrands();
-    } else if (resource === "/brands/search" && method === "POST") {
-      return this._searchBrands();
-    } else if (
-      resource === "/brands/{brandId}/collections/search" &&
-      method === "POST"
-    ) {
-      return this._searchCollections();
-    } else if (
-      resource ===
-        "/brands/{brandId}/collections/{collectionId}/models/search" &&
-      method === "POST"
-    ) {
-      return this._searchModels();
-    } else if (resource === "/types" && method === "GET") {
-      return this._getAllTypes();
-    } else if (resource === "/types" && method === "POST") {
-      return this._createType();
-    } else if (
-      resource === "/brands/{brandId}/collections" &&
-      method === "GET"
-    ) {
-      return this._getBrandCollections();
-    } else if (
-      resource === "/brands/{brandId}/collections" &&
-      method === "POST"
-    ) {
-      return this._createCollection();
-    } else if (
-      resource === "/brands/{brandId}/collections{collectionId}/models" &&
-      method === "GET"
-    ) {
-      return this._findModelsOfCollection();
-    } else if (
-      resource === "/brands/{brandId}/collections{collectionId}/models" &&
-      method === "POST"
-    ) {
-      return this._createModel();
-    } else if (resource === "/cuts" && method === "POST") {
-      return this._createCut();
-    } else if (resource === "/cuts" && method === "GET") {
-      return this._findAllCuts();
-    } else if (resource === "/sizetype" && method === "POST") {
-      return this._createSizeTypes();
-    } else if (resource === "/sizetype" && method === "GET") {
-      return this._getAllSizeTypes();
-    } else if (resource === "/images" && method === "POST") {
-      return this._createImage();
-    } else if (resource === "/images" && method === "GET") {
-      return this._getAllImages();
-    } else if (resource === "/images/upload" && method === "POST") {
-      return this._uploadUserShoeImage();
-    } else if (resource === "/sneaks" && method === "GET") {
-      return this._getSneaksData();
-    } else if (resource === "/") {
-      return "Test Complete";
+    if (routes[resource] && routes[resource][httpMethod]) {
+      const instanceClass = routes[resource].instance;
+      const instance = new instanceClass(this.event);
+      const methodName = routes[resource][httpMethod];
+      return instance[methodName]();
     } else {
-      throw new Error("unknown route");
+      throw new Error("Unknown route");
     }
   }
+
+  async run() {
+    const result = await this.router();
+    debugger;
+    // TODO do status and headers returns in here
+    return result;
+  }
 }
+
+const ROUTES = {
+  // "/shoes": {
+  //   GET: Shoes.prototype._getAllShoes,
+  // },
+  "/users": {
+    GET: ShoesStackerAPI.prototype._getAllUsers,
+    POST: ShoesStackerAPI.prototype._createUser,
+  },
+  "/users/{userId}": {
+    GET: ShoesStackerAPI.prototype._getCurrentUser,
+  },
+  "/users/{userId}/shoes": {
+    GET: ShoesStackerAPI.prototype._getAllUserShoes,
+    POST: ShoesStackerAPI.prototype._createUserShoe,
+  },
+  "/users/{userId}/shoes/{shoeId}": {
+    DELETE: ShoesStackerAPI.prototype._deleteUserShoe,
+  },
+  "/brands": {
+    GET: ShoesStackerAPI.prototype._getAllBrands,
+    POST: ShoesStackerAPI.prototype._createBrands,
+  },
+  "/brands/search": {
+    POST: ShoesStackerAPI.prototype._searchBrands,
+  },
+  "/brands/{brandid}/collections/search": {
+    POST: ShoesStackerAPI.prototype._searchCollections,
+  },
+  "/brands/{brandid}/collections/{collectionId}/models/search": {
+    POST: ShoesStackerAPI.prototype._searchModels,
+  },
+  "/types": {
+    GET: ShoesStackerAPI.prototype._getAllTypes,
+    POST: ShoesStackerAPI.prototype._createType,
+  },
+  "/brands/{brandid}/collections": {
+    GET: ShoesStackerAPI.prototype._getBrandCollections,
+    POST: ShoesStackerAPI.prototype._createCollection,
+  },
+  "/brands/{brandid}/collections/{collectionId}/models": {
+    GET: ShoesStackerAPI.prototype._findModelsOfCollection,
+    POST: ShoesStackerAPI.prototype._createModel,
+  },
+  "/cuts": {
+    GET: ShoesStackerAPI.prototype._findAllCuts,
+    POST: ShoesStackerAPI.prototype._createCut,
+  },
+  "/sizetype": {
+    GET: ShoesStackerAPI.prototype._getAllSizeTypes,
+    POST: ShoesStackerAPI.prototype._createSizeTypes,
+  },
+  "/images": {
+    GET: ShoesStackerAPI.prototype._getAllImages,
+    POST: ShoesStackerAPI.prototype._createImage,
+  },
+  "/images/upload": {
+    POST: ShoesStackerAPI.prototype._uploadUserShoeImage,
+  },
+  "/sneaks": {
+    GET: ShoesStackerAPI.prototype._getSneaksData,
+  },
+};
 
 module.exports = ShoesStackerAPI;

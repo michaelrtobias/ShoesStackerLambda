@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "aws-sdk": "^2.879.0",
     "pg": "^8.5.1",
     "sequelize": "^6.6.2",
     "sneaks-api": "git+https://github.com/michaelrtobias/Sneaks-API.git"
