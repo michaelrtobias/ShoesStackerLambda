@@ -1,5 +1,7 @@
 const models = require("../db/models.js");
 const SneaksAPI = require("sneaks-api");
+const express = require("express");
+const app = new express();
 
 class Sneaks {
   static routes = {
@@ -15,18 +17,28 @@ class Sneaks {
   }
 
   async getSneaksData() {
-    const body = this.body;
     const term = this.event.queryStringParameters.term;
     const sneaks = new SneaksAPI();
-    const shoes = await sneaks.getProducts(term, (err, shoes) => {
+    const shoes = await sneaks.getProducts(term, (err, shoes, callback) => {
       if (err) {
         throw err;
       } else {
         console.log(`Shoes for ${term}`);
-        return shoes;
+        console.log(shoes);
+        callback(null, shoes);
       }
     });
     return shoes;
+    // app.get("/sneaks", (req, res, callback) => {
+    //   sneaks.getProducts(term, (err, shoes) => {
+    //     if (err) {
+    //       throw err;
+    //     } else {
+    //       res.send(shoes);
+    //       console.log(`Shoes for ${term}`);
+    //     }
+    //   });
+    // });
   }
 }
 
